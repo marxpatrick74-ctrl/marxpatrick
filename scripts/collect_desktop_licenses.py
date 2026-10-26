@@ -1,5 +1,6 @@
 """Preserve installed dependencies' notices next to a portable distribution."""
 import importlib.metadata as metadata
+import hashlib
 import json
 import shutil
 import sys
@@ -21,8 +22,10 @@ def collect(destination):
             if any(word in str(entry).lower() for word in ("license", "licence", "copying", "notice", "authors")):
                 path = Path(dist.locate_file(entry))
                 if path.is_file():
-                    # Flatten unusual metadata paths; no install path leaks in the bundle.
-                    target = notices / name / str(entry).replace("/", "_").replace("\\", "_").replace(":", "_")
+                    # Short, collision-resistant names avoid Windows path limits.
+                    # Preserve every notice without embedding an installation path.
+                    identity = hashlib.sha256(str(entry).encode()).hexdigest()[:12]
+                    target = notices / name / (identity + "_" + path.name)
                     target.parent.mkdir(exist_ok=True)
                     shutil.copyfile(path, target)
     base = Path(sys.base_prefix)
