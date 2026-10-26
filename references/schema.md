@@ -53,6 +53,8 @@ Version 0.2 adds optional `resolutions`: a list of `{ "issue_id": "issue-...", "
 
 The primary user interface is now review.xlsx. Its hidden metadata binds to the same hashes; editable tabs are translated into this JSON contract after rejecting formulas, changed headers/original columns, missing original rows and duplicate IDs. Deletion must be explicit in the operation column.
 
+Version 0.4.0 adds optional workbook `_meta.language` (`en` or `zh`). Missing language means a legacy Chinese workbook. The reader validates sheet names, headings, control values and application notice text in the workbook language independently of the active UI language. Source/base hashes retain their meaning. Source descriptions, values, evidence and human notes are never translated. Language selection does not change the extraction JSON schema or canonical issue identifiers.
+
 ## Checks and issue codes
 
 | Code | Meaning |
