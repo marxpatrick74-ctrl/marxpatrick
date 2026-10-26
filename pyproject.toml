@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sheetaudit-ai"
+version = "0.3.2"
+description = "Local PDF purchase-order/invoice extraction and arithmetic review"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = ["pdfplumber>=0.11,<0.12", "openpyxl>=3.1,<3.2"]
+
+[project.optional-dependencies]
+demo = ["reportlab>=4,<5", "pypdfium2>=4,<6", "Pillow>=10,<14"]
+ocr = ["pypdfium2>=4,<6", "Pillow>=10,<14"]
+
+[project.scripts]
+sheetaudit = "sheetaudit.cli:main"
+
+[project.gui-scripts]
+sheetaudit-desktop = "sheetaudit.desktop:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
