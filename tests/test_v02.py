@@ -223,7 +223,7 @@ class ReviewExcelTests(unittest.TestCase):
     def test_cli_excel_review_and_policy_preservation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            self.assertEqual(main(["audit", str(PDF), "--out", str(root / "run"), "--tolerance", "0"]), 0)
+            self.assertEqual(main(["audit", str(PDF), "--out", str(root / "run"), "--tolerance", "0", "--language", "zh"]), 0)
             folder = next((root / "run/documents").iterdir())
             path = folder / "review.xlsx"
             fill_workbook(path).save(path)

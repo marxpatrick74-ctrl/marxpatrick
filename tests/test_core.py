@@ -193,7 +193,7 @@ class CliTests(unittest.TestCase):
     def test_batch_report_contents_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "report"
-            self.assertEqual(main(["audit", str(PDFS), "--out", str(out)]), 0)
+            self.assertEqual(main(["audit", str(PDFS), "--out", str(out), "--language", "zh"]), 0)
             summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
             self.assertEqual(summary["documents"], 5)
             self.assertEqual(summary["failed"], 0)

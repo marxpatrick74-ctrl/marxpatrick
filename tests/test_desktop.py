@@ -18,7 +18,9 @@ class DesktopWorkflowTests(unittest.TestCase):
                 with patch.object(sys, "executable", str(base / "程序" / "SheetAudit.exe")):
                     self.assertEqual(default_output_directory(), base / "输出报告")
                 with patch.object(sys, "executable", str(base / "其他位置" / "SheetAudit.exe")):
-                    self.assertEqual(default_output_directory(), base / "其他位置" / "输出报告")
+                    self.assertEqual(default_output_directory(), base / "其他位置" / "reports")
+                with patch.object(sys, "executable", str(base / "program" / "SheetAudit.exe")):
+                    self.assertEqual(default_output_directory(), base / "reports")
 
     def test_invalid_settings_fail_before_creating_output(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -76,7 +78,7 @@ class DesktopWorkflowTests(unittest.TestCase):
             import json
             record = json.loads(next(Path(reviewed["output"]).glob("documents/*/extracted.json")).read_text(encoding="utf-8"))
             self.assertEqual(record["audit_policy"], {"tolerance": "0", "decimal_places": 3})
-            wrong = ROOT / "examples/pdfs/discrepancy_invoice_zh.pdf"
+            wrong = ROOT / "tests/fixtures/discrepancy_invoice_zh.pdf"
             with self.assertRaises(ValueError):
                 execute_job(review_arguments(str(extracted), str(workbook), str(wrong), folder))
 
