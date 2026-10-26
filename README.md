@@ -1,4 +1,4 @@
-# SheetAudit AI 0.3.2
+# SheetAudit AI 0.4.0
 
 [Agent skill](SKILL.md) · [MIT license](LICENSE)
 
@@ -8,7 +8,22 @@ The default workflow uses local rules. It needs no API key, account or cloud ser
 
 ## Release scope
 
-This release contains the runnable Python project and agent skill. Documentation and public demo PDFs are in English. The existing desktop source and workbook interface retain their original Chinese labels; this is not a fully localized English application. No prebuilt Windows executable is included in this source release. See [desktop notes](DESKTOP.md).
+The desktop interface, CLI messages, Excel reports and review workbooks support English and Simplified Chinese. English is the default. Public demo PDFs and this guide are English; [a Chinese guide](README.zh-CN.md) is also available. See [desktop setup](DESKTOP.md) for the portable Windows application.
+
+![English desktop interface with language switching](examples/desktop-en.png)
+
+## Choose a language
+
+In the desktop window, select **English** or **简体中文** at the top right. The app remembers the choice locally. Switching preserves selected files, entered settings and the current view without resizing the window. Reports created afterward use that language; existing reports remain unchanged. The selector is locked while a batch is running.
+
+For the CLI, `--language` works before or after a subcommand:
+
+```text
+python -m sheetaudit audit examples/pdfs --out reports/demo-en --language en
+python -m sheetaudit --language zh audit examples/pdfs --out reports/demo-zh
+```
+
+Source descriptions, customer names, amounts and evidence stay in their original language. Review workbook language is detected from its metadata, so either UI language can import English, Chinese and legacy Chinese workbooks. JSON records retain their canonical vocabulary and stable English issue codes for compatibility. Language preference files contain only the language code, not document names or data. You can also set `SHEETAUDIT_LANGUAGE=en` or `zh` for the CLI default.
 
 ## Python project and agent skill
 
@@ -55,7 +70,7 @@ For an English-keyed correction file, copy the generated `review-template.json` 
 python -m sheetaudit review reports/demo-001/documents/<document-id>/extracted.json --corrections path/to/corrections.json --source path/to/original.pdf --out reports/review-001
 ```
 
-The same command accepts the generated `review.xlsx` as `--corrections`. See [the schema](references/schema.md) for field definitions. Review workbooks and reports keep the original interface language in this version.
+The same command accepts the generated `review.xlsx` as `--corrections`. See [the schema](references/schema.md) for field definitions. The selected language controls the new report and review workbook; it does not restrict which workbook language can be imported.
 
 For a privacy-reduced status summary, run:
 
@@ -67,7 +82,7 @@ For a privacy-reduced status summary, run:
 
 Document processing is local by default. Outputs and raw-evidence JSON files are not encrypted. Keep customer files outside source control and automatic cloud-sync folders. Do not attach real invoices, customer records or unredacted reports to public issues.
 
-The project has 57 automated tests. The bundled PDFs are synthetic examples, including intentional discrepancies and unsupported cases. They are not client work or a claim of real-world invoice accuracy. Arithmetic agreement does not establish completeness, invoice authenticity, tax correctness or permission to pay.
+The project has 67 automated tests. The bundled PDFs are synthetic examples, including intentional discrepancies and unsupported cases. They are not client work or a claim of real-world invoice accuracy. Arithmetic agreement does not establish completeness, invoice authenticity, tax correctness or permission to pay.
 
 Report a reproducible problem using synthetic or authorized redacted documents, the version, expected result and actual result. Third-party libraries and the bundled desktop runtime retain their own licenses and notices. See `THIRD_PARTY_NOTICES.md`.
 

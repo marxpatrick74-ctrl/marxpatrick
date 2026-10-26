@@ -8,6 +8,8 @@ license: MIT
 
 Use this folder as the Python project root. Read README.md for setup and supported layouts. Use an existing project virtual environment or create one, then install with `python -m pip install -e .`. Keep arithmetic in the bundled Decimal code.
 
+The CLI and desktop default to English; use `--language zh` for Chinese or `--language en` for English. The desktop Language selector remembers the preference and controls future report labels. Source text and evidence are never translated. Review workbooks carry their own language metadata and can be imported from either UI language; legacy Chinese workbooks remain supported. Machine-readable records keep the legacy vocabulary and stable English issue codes.
+
 For nontechnical Windows users, prefer the portable desktop build described in DESKTOP.md. It bundles Python and dependencies; do not ask end users to install Python, use a terminal or install packages. The desktop interface supports audit and review with the same arithmetic and evidence checks. OCR / Ollama remain developer-only optional CLI features in this release.
 
 ## Default workflow

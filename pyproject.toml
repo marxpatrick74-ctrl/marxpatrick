@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sheetaudit-ai"
-version = "0.3.2"
+version = "0.4.0"
 description = "Local PDF purchase-order/invoice extraction and arithmetic review"
 readme = "README.md"
 license = {file = "LICENSE"}
