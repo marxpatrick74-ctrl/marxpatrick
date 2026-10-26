@@ -25,6 +25,14 @@ On macOS/Linux, substitute `.venv/bin/python` for the Windows executable path. T
 
 For an AI coding agent, load the root `SKILL.md` and use this folder as the project root. Keep `src/`, `scripts/`, `references/`, the example PDFs and `pyproject.toml` with the skill. The skill guides extraction, privacy summaries, arithmetic interpretation and local human corrections.
 
+You can also install the skill with the [skills CLI](https://github.com/vercel-labs/skills), which requires Node.js 22.20 or later:
+
+```text
+npx skills add marxpatrick74-ctrl/marxpatrick --skill sheetaudit-ai
+```
+
+Choose the target agent when prompted. Skill installation copies the instructions and resources; install the Python project dependencies in the copied skill folder before running audits. The CLI supports an opt-out for its telemetry; see its documentation. A directory listing or leaderboard placement is not guaranteed by publication.
+
 ## Supported pilot
 
 - Text-based Chinese or English invoices and purchase orders with common field labels and consistently aligned line-item columns.
