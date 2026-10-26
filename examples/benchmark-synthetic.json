@@ -1,0 +1,152 @@
+{
+  "dataset_type": "synthetic",
+  "cases": [
+    {
+      "pdf": "regressions/shipping_product.pdf",
+      "sha256": "fffb4abc5e0ae78009390e32bb6991e3cf366b0b916eb9d214f989c07486baf8",
+      "expected": {
+        "fields": {
+          "document_type": "invoice",
+          "document_number": "REG-01",
+          "date": "2026-10-25",
+          "seller": "Test Supplier",
+          "buyer": "Demo Buyer",
+          "currency": "USD",
+          "subtotal": "43.00",
+          "tax": "0.00",
+          "discount": "0.00",
+          "shipping": "0.00",
+          "total": "43.00"
+        },
+        "items": [
+          {
+            "page": 1,
+            "description": "Cable",
+            "quantity": "2",
+            "unit_price": "10.00",
+            "amount": "20.00"
+          },
+          {
+            "page": 1,
+            "description": "Shipping labels",
+            "quantity": "3",
+            "unit_price": "5.00",
+            "amount": "15.00"
+          },
+          {
+            "page": 1,
+            "description": "Adapter",
+            "quantity": "1",
+            "unit_price": "8.00",
+            "amount": "8.00"
+          }
+        ]
+      }
+    },
+    {
+      "pdf": "regressions/continuation_grid.pdf",
+      "sha256": "e3370ec81a341ea6fb6c7c8d0e9ee5295413881e35044038dcd2eea31475294a",
+      "expected": {
+        "fields": {
+          "document_type": "invoice",
+          "document_number": "REG-02",
+          "date": "2026-10-25",
+          "seller": "Test Supplier",
+          "buyer": "Demo Buyer",
+          "currency": "USD",
+          "subtotal": "28.00",
+          "tax": "0.00",
+          "discount": "0.00",
+          "shipping": "0.00",
+          "total": "28.00"
+        },
+        "items": [
+          {
+            "page": 1,
+            "description": "Cable",
+            "quantity": "2",
+            "unit_price": "10.00",
+            "amount": "20.00"
+          },
+          {
+            "page": 2,
+            "description": "Adapter",
+            "quantity": "1",
+            "unit_price": "8.00",
+            "amount": "8.00"
+          }
+        ]
+      }
+    },
+    {
+      "pdf": "regressions/borderless.pdf",
+      "sha256": "ea5c5566c067dc267d1aa0a991cc178e6d52226b0b61f019f6261e09a749e495",
+      "expected": {
+        "fields": {
+          "document_type": "invoice",
+          "document_number": "REG-03",
+          "date": "2026-10-25",
+          "seller": "Test Supplier",
+          "buyer": "Demo Buyer",
+          "currency": "USD",
+          "subtotal": "28.00",
+          "tax": "0.00",
+          "discount": "0.00",
+          "shipping": "0.00",
+          "total": "28.00"
+        },
+        "items": [
+          {
+            "page": 1,
+            "description": "Cable",
+            "quantity": "2",
+            "unit_price": "10.00",
+            "amount": "20.00"
+          },
+          {
+            "page": 1,
+            "description": "Adapter",
+            "quantity": "1",
+            "unit_price": "8.00",
+            "amount": "8.00"
+          }
+        ]
+      }
+    },
+    {
+      "pdf": "regressions/continuation_borderless.pdf",
+      "sha256": "7fc70eb33f1168499af517611811625d95f63458c5ceb05f26f7fa345f4069e9",
+      "expected": {
+        "fields": {
+          "document_type": "invoice",
+          "document_number": "REG-04",
+          "date": "2026-10-25",
+          "seller": "Test Supplier",
+          "buyer": "Demo Buyer",
+          "currency": "USD",
+          "subtotal": "28.00",
+          "tax": "0.00",
+          "discount": "0.00",
+          "shipping": "0.00",
+          "total": "28.00"
+        },
+        "items": [
+          {
+            "page": 1,
+            "description": "Cable",
+            "quantity": "2",
+            "unit_price": "10.00",
+            "amount": "20.00"
+          },
+          {
+            "page": 2,
+            "description": "Adapter",
+            "quantity": "1",
+            "unit_price": "8.00",
+            "amount": "8.00"
+          }
+        ]
+      }
+    }
+  ]
+}
