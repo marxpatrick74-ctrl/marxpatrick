@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -10,6 +11,8 @@ from pathlib import Path
 from . import __version__
 from .audit import audit_document
 from .extract import extract_document
+from .i18n import translate as tr
+from .i18n import use_language, current_language, LANGUAGES
 from .model import digest, issue
 from .report import write_report
 from .review import apply_review, review_template
@@ -45,38 +48,53 @@ def collect(inputs):
     return paths
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(description="SheetAudit AI — 本地 PDF 提取与金额核对")
+def build_parser(language="zh"):
+    with use_language(language):
+        return _build_parser(language)
+
+
+def _build_parser(language):
+    parser = argparse.ArgumentParser(prog="sheetaudit", description=tr("SheetAudit AI — 本地 PDF 提取与金额核对"))
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--language", choices=LANGUAGES, default=language,
+                        help=tr("界面和报告语言"))
     sub = parser.add_subparsers(dest="command", required=True)
-    audit = sub.add_parser("audit", help="提取 PDF 并生成 Excel/JSON 报告")
-    audit.add_argument("inputs", nargs="+", help="PDF 文件或目录")
+    audit = sub.add_parser("audit", help=tr("提取 PDF 并生成 Excel/JSON 报告"), description=tr("提取 PDF 并生成 Excel/JSON 报告"))
+    audit.add_argument("inputs", nargs="+", help=tr("PDF 文件或目录"))
     audit.add_argument("--engine", choices=("rules", "ollama"), default="rules")
-    audit.add_argument("--model", help="已安装的 Ollama 本地模型名；不下载模型")
+    audit.add_argument("--model", help=tr("已安装的 Ollama 本地模型名；不下载模型"))
     audit.add_argument("--ollama-port", type=int, default=11434)
     audit.add_argument("--number-format", choices=("en", "de"), default="en", help="en: 1,234.56；de: 1.234,56")
-    audit.add_argument("--ocr", action="store_true", help="只对少文字页面运行本地 Tesseract")
-    audit.add_argument("--ocr-language", default="eng", help="如 chi_sim+eng；须已安装语言包")
-    audit.add_argument("--tesseract", default="tesseract", help="本机 Tesseract 可执行文件路径")
-    review = sub.add_parser("review", help="应用人工修正，验证原 PDF 指纹，输出新版本")
+    audit.add_argument("--ocr", action="store_true", help=tr("只对少文字页面运行本地 Tesseract"))
+    audit.add_argument("--ocr-language", default="eng", help=tr("如 chi_sim+eng；须已安装语言包"))
+    audit.add_argument("--tesseract", default="tesseract", help=tr("本机 Tesseract 可执行文件路径"))
+    review = sub.add_parser("review", help=tr("应用人工修正，验证原 PDF 指纹，输出新版本"))
     review.add_argument("extracted", type=Path)
     review.add_argument("--corrections", type=Path, required=True)
     review.add_argument("--source", type=Path, required=True)
-    summary = sub.add_parser("summary", help="只输出匿名统计，不显示文件名、金额、原文或签注")
-    summary.add_argument("report_dir", type=Path, help="包含 summary.json 的报告目录")
-    benchmark = sub.add_parser("benchmark", help="对带人工标注和指纹的样本进行规则提取验证")
+    summary = sub.add_parser("summary", help=tr("只输出匿名统计，不显示文件名、金额、原文或签注"))
+    summary.add_argument("report_dir", type=Path, help=tr("包含 summary.json 的报告目录"))
+    benchmark = sub.add_parser("benchmark", help=tr("对带人工标注和指纹的样本进行规则提取验证"))
     benchmark.add_argument("manifest", type=Path)
-    benchmark.add_argument("--out", type=Path, required=True, help="新的验证结果 JSON 文件")
+    benchmark.add_argument("--out", type=Path, required=True, help=tr("新的验证结果 JSON 文件"))
+    for command in (audit, review, summary, benchmark):
+        command.add_argument("--language", choices=LANGUAGES, default=argparse.SUPPRESS,
+                             help=tr("界面和报告语言"))
     for cmd in (audit, review):
-        cmd.add_argument("--out", type=Path, required=True, help="新的输出目录；拒绝覆盖已有目录")
-        cmd.add_argument("--tolerance", default="0.01", help="绝对差异≤容差视为算术一致（默认 0.01）")
+        cmd.add_argument("--out", type=Path, required=True, help=tr("新的输出目录；拒绝覆盖已有目录"))
+        cmd.add_argument("--tolerance", default="0.01", help=tr("绝对差异≤容差视为算术一致（默认 0.01）"))
         cmd.add_argument("--decimal-places", type=int, choices=range(5), default=2)
-        cmd.add_argument("--fail-on-issues", action="store_true", help="存在差异、无法核验或待复核提示时返回 1")
+        cmd.add_argument("--fail-on-issues", action="store_true", help=tr("存在差异、无法核验或待复核提示时返回 1"))
     review.set_defaults(tolerance=None, decimal_places=None)
     return parser
 
 
 def run(args, progress=None, announce=print):
+    with use_language(getattr(args, "language", "zh")):
+        return _run(args, progress, announce)
+
+
+def _run(args, progress=None, announce=print):
     if args.command == "benchmark":
         if args.out.exists():
             raise ValueError("验证结果文件已存在，请选择新文件")
@@ -108,7 +126,7 @@ def run(args, progress=None, announce=print):
         if args.command == "audit":
             for idx, path in enumerate(paths, 1):
                 if progress:
-                    progress(idx - 1, len(paths), "正在读取和提取")
+                    progress(idx - 1, len(paths), tr("正在读取和提取"))
                 did = f"d{idx:03d}"
                 try:
                     doc, pages = extract_document(path, engine=args.engine, number_format=args.number_format,
@@ -121,10 +139,10 @@ def run(args, progress=None, announce=print):
                     source_paths[did] = path
                 except Exception as exc:
                     # Do not leak document text, endpoint response bodies or absolute paths to logs.
-                    message = str(exc) if isinstance(exc, ValueError) and exc.__class__ is ValueError else "读取/提取失败，请检查文件、PDF 加密或本地 OCR/模型依赖"
+                    message = str(exc) if isinstance(exc, ValueError) and exc.__class__ is ValueError else tr("读取/提取失败，请检查文件、PDF 加密或本地 OCR/模型依赖")
                     errors.append({"document_id": did, "file": path.name, "error_type": type(exc).__name__, "message": message})
                 if progress:
-                    progress(idx, len(paths), "已完成提取")
+                    progress(idx, len(paths), tr("已完成提取"))
             fingerprints = {}
             for record in records:
                 d = record["document"]
@@ -152,7 +170,7 @@ def run(args, progress=None, announce=print):
             if args.corrections.suffix.lower() == ".xlsx":
                 shutil.copyfile(args.corrections, target / "review-applied.xlsx")
         if progress:
-            progress(len(paths), len(paths), "正在核算并生成 Excel")
+            progress(len(paths), len(paths), tr("正在核算并生成 Excel"))
         for record in records:
             d = record["document"]
             d["audit_policy"] = {"tolerance": str(args.tolerance), "decimal_places": args.decimal_places}
@@ -162,7 +180,7 @@ def run(args, progress=None, announce=print):
             dump(target / "audit.json", record["audit"])
             dump(target / "review-template.json", review_template(d))
             write_review_workbook(d, target / "review.xlsx", source_paths.get(d["document_id"]))
-        summary = {"version": __version__, "created_at": datetime.now(timezone.utc).isoformat(),
+        summary = {"version": __version__, "language": current_language(), "created_at": datetime.now(timezone.utc).isoformat(),
                    "documents": len(records), "failed": len(errors),
                    "differences": sum(r["audit"]["differences"] for r in records),
                    "uncheckable": sum(r["audit"]["uncheckable"] for r in records),
@@ -175,8 +193,8 @@ def run(args, progress=None, announce=print):
         dump(staging / "privacy-summary.json", private_summary(summary))
         # Rename within the same filesystem: never replace an existing successful run.
         staging.rename(args.out)
-        announce(f"报告已生成：成功 {len(records)}，失败 {len(errors)}，差异 {summary['differences']}，无法核验 {summary['uncheckable']}，待复核提示 {summary['review_notices']}。")
-        announce("输出：report.xlsx；每份单据的 documents 子目录包含可编辑 review.xlsx。")
+        announce(tr(f"报告已生成：成功 {len(records)}，失败 {len(errors)}，差异 {summary['differences']}，无法核验 {summary['uncheckable']}，待复核提示 {summary['review_notices']}。"))
+        announce(tr("输出：report.xlsx；每份单据的 documents 子目录包含可编辑 review.xlsx。"))
         if errors:
             return 2
         return 1 if args.fail_on_issues and (summary["differences"] or summary["uncheckable"] or summary["review_notices"]) else 0
@@ -186,12 +204,24 @@ def run(args, progress=None, announce=print):
 
 
 def main(argv=None):
-    args = build_parser().parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    language = os.environ.get("SHEETAUDIT_LANGUAGE", "en")
+    for index, value in enumerate(arguments):
+        if value == "--language" and index + 1 < len(arguments):
+            language = arguments[index + 1]
+        elif value.startswith("--language="):
+            language = value.partition("=")[2]
+    with use_language(language if language in LANGUAGES else "en"):
+        return _main(arguments)
+
+
+def _main(argv):
+    args = build_parser(current_language()).parse_args(argv)
     try:
         return run(args)
     except (ValueError, OSError, InvalidOperation, KeyError, TypeError) as exc:
         # Expected argument/schema errors only; unexpected programmer errors retain traceback.
-        message = str(exc) if type(exc) is ValueError else "参数、文件或 JSON schema 无效；请参照 README 和 review-template.json"
+        message = tr(str(exc)) if type(exc) is ValueError else tr("参数、文件或 JSON schema 无效；请参照 README 和 review-template.json")
         print("SheetAudit: " + message, file=sys.stderr)
         return 2
 

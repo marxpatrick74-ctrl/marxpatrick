@@ -14,6 +14,22 @@ from tkinter import filedialog, messagebox, ttk
 from . import __version__
 from .cli import build_parser, collect, read_json, run
 from .privacy import private_summary
+from .i18n import translate, check_language, load_language, save_language
+
+
+class LocalizedStringVar(tk.StringVar):
+    """Keep the application message, so switching never translates customer input."""
+    def __init__(self, language, value=""):
+        self.language = language
+        self.original = value
+        super().__init__(value=translate(value, language()))
+
+    def set(self, value):
+        self.original = value
+        super().set(translate(value, self.language()))
+
+    def refresh(self):
+        super().set(translate(self.original, self.language()))
 
 
 def sample_directory():
@@ -26,19 +42,21 @@ def default_output_directory():
     """Keep portable reports beside the program, including when the folder moves."""
     if getattr(sys, "frozen", False):
         app_directory = Path(sys.executable).resolve().parent
-        base = app_directory.parent if app_directory.name == "程序" else app_directory
-        return base / "输出报告"
+        if app_directory.name == "程序":
+            return app_directory.parent / "输出报告"  # Preserve existing installations.
+        base = app_directory.parent if app_directory.name.lower() == "program" else app_directory
+        return base / "reports"
     return Path.home() / "Documents" / "SheetAudit Reports"
 
 
-def new_output(parent, kind="核对"):
+def new_output(parent, kind="audit"):
     if not str(parent).strip():
         raise ValueError("请先选择报告保存位置")
     return Path(parent).expanduser().resolve() / (
         kind + "-" + datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6])
 
 
-def audit_arguments(files, parent, tolerance="0.01", places="2", number_format="en"):
+def audit_arguments(files, parent, tolerance="0.01", places="2", number_format="en", language="zh"):
     if str(places) not in ("0", "1", "2", "3", "4"):
         raise ValueError("小数位须在 0 到 4 之间")
     try:
@@ -49,19 +67,19 @@ def audit_arguments(files, parent, tolerance="0.01", places="2", number_format="
         raise ValueError("允许差额须在 0 到 1000 之间")
     paths = collect(files)
     out = new_output(parent)
-    return build_parser().parse_args(["audit", *map(str, paths), "--out", str(out),
+    return build_parser(language).parse_args(["audit", *map(str, paths), "--out", str(out),
         "--tolerance", str(value), "--decimal-places", str(places), "--number-format", number_format])
 
 
-def review_arguments(extracted, corrections, source, parent):
+def review_arguments(extracted, corrections, source, parent, language="zh"):
     for label, raw, suffix in (("原提取记录", extracted, ".json"),
                                ("已保存的复核表", corrections, ".xlsx"),
                                ("原始 PDF", source, ".pdf")):
         path = Path(raw)
         if not raw.strip() or not path.is_file() or path.suffix.lower() != suffix:
             raise ValueError("请选择有效的" + label)
-    return build_parser().parse_args(["review", extracted, "--corrections", corrections,
-        "--source", source, "--out", str(new_output(parent, "复核"))])
+    return build_parser(language).parse_args(["review", extracted, "--corrections", corrections,
+        "--source", source, "--out", str(new_output(parent, "review"))])
 
 
 def execute_job(args, progress=None):
@@ -71,8 +89,11 @@ def execute_job(args, progress=None):
 
 
 class Desktop:
-    def __init__(self, root):
+    def __init__(self, root, language=None, settings_path=None):
         self.root = root
+        self.language = check_language(language or load_language(settings_path))
+        self.settings_path = settings_path
+        self.widget_messages = {}
         self.files = []
         self.output = None
         self.busy = False
@@ -115,6 +136,12 @@ class Desktop:
         ttk.Label(head, text="SheetAudit", style="Title.TLabel").pack(side="left")
         ttk.Label(head, text="单据核对  ·  本地运行", style="Sub.TLabel").pack(side="left", padx=16, pady=(8, 0))
         ttk.Button(head, text="使用说明", command=self.help).pack(side="right")
+        self.language_choice = tk.StringVar()
+        self.language_selector = ttk.Combobox(head, textvariable=self.language_choice,
+            values=("English", "简体中文"), width=10, state="readonly")
+        self.language_selector.pack(side="right", padx=(6, 12))
+        self.language_selector.bind("<<ComboboxSelected>>", self.switch_language)
+        ttk.Label(head, text="语言", style="Sub.TLabel").pack(side="right")
         nav = ttk.Frame(outer)
         nav.grid(row=1, column=0, sticky="w", pady=(16, 12))
         self.module_buttons = {}
@@ -138,8 +165,8 @@ class Desktop:
         self.tolerance = tk.StringVar(value="0.01")
         self.places = tk.StringVar(value="2")
         self.number_format = tk.StringVar(value="1,234.56")
-        self.status = tk.StringVar(value="准备就绪，可先加载样例体验。")
-        self.stats = tk.StringVar(value="生成报告后，在这里查看处理结果。")
+        self.status = LocalizedStringVar(lambda: self.language, value="准备就绪，可先加载样例体验。")
+        self.stats = LocalizedStringVar(lambda: self.language, value="生成报告后，在这里查看处理结果。")
         self.build_audit()
         self.build_review()
         save = ttk.Frame(outer, style="Card.TFrame", padding=(18, 12))
@@ -173,7 +200,45 @@ class Desktop:
         ttk.Label(footer, textvariable=self.status, style="Sub.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(footer, text="仅本机处理  ·  " + __version__, style="Sub.TLabel").grid(row=0, column=1, sticky="e")
         self.show_page(0)
+        self.capture_messages(root)
+        self.apply_language(self.language, persist=False)
         root.after(100, self.poll)
+
+    def tr(self, message):
+        return translate(message, self.language)
+
+    def capture_messages(self, parent):
+        for widget in parent.winfo_children():
+            keys = widget.keys()
+            if "text" in keys and not ("textvariable" in keys and str(widget.cget("textvariable"))):
+                self.widget_messages[widget] = str(widget.cget("text"))
+            self.capture_messages(widget)
+
+    def text(self, widget, message):
+        self.widget_messages[widget] = message
+        widget.configure(text=self.tr(message))
+
+    def apply_language(self, language, persist=True):
+        self.language = check_language(language)
+        self.language_choice.set("English" if language == "en" else "简体中文")
+        self.root.title(self.tr("SheetAudit · 本地单据核对"))
+        for widget, message in self.widget_messages.items():
+            widget.configure(text=self.tr(message))
+            if isinstance(widget, ttk.Label) and len(self.tr(message)) > 75:
+                widget.configure(wraplength=850)
+        self.status.refresh()
+        self.stats.refresh()
+        self.show_page(self.current_page)
+        if persist:
+            save_language(language, self.settings_path)
+
+    def switch_language(self, event=None):
+        if not self.busy:
+            self.apply_language("en" if self.language_choice.get() == "English" else "zh")
+
+    def message(self, kind, title, message, **options):
+        options.setdefault("parent", self.root)
+        return getattr(messagebox, kind)(self.tr(title), self.tr(message), **options)
 
     def button(self, parent, text, command, **kw):
         b = ttk.Button(parent, text=text, command=command, **kw)
@@ -191,7 +256,7 @@ class Desktop:
         row.grid(row=1, column=0, sticky="ew", pady=(12, 10))
         for text, command in (("添加 PDF", self.add_files), ("添加文件夹", self.add_folder),
                               ("加载样例", self.load_samples), ("移除选中", self.remove_files)):
-            self.button(row, text, command, width=11).pack(side="left", padx=(0, 8))
+            self.button(row, text, command, width=14).pack(side="left", padx=(0, 8))
         files = ttk.Frame(self.audit_tab, style="Card.TFrame")
         files.grid(row=2, column=0, sticky="nsew")
         self.listbox = tk.Listbox(files, height=4, selectmode="extended", font=("Microsoft YaHei UI", 10),
@@ -244,23 +309,23 @@ class Desktop:
             button.configure(bg="white" if i == index else "#e9edf4",
                              fg="#3268dc" if i == index else "#778399",
                              activebackground="white", activeforeground="#3268dc")
-        self.action_button.configure(text="生成报告" if index == 0 else "重新核算",
-                                     command=self.start_audit if index == 0 else self.start_review)
+        self.text(self.action_button, "生成报告" if index == 0 else "重新核算")
+        self.action_button.configure(command=self.start_audit if index == 0 else self.start_review)
 
     def pick(self, var, pattern):
-        value = filedialog.askopenfilename(parent=self.root, filetypes=[("所需文件", pattern)])
+        value = filedialog.askopenfilename(parent=self.root, filetypes=[(self.tr("所需文件"), pattern)])
         if value:
             var.set(value)
 
     def choose_parent(self):
-        value = filedialog.askdirectory(parent=self.root, title="选择报告保存位置")
+        value = filedialog.askdirectory(parent=self.root, title=self.tr("选择报告保存位置"))
         if value:
             self.parent.set(value)
 
     def add(self, paths):
         combined = list(dict.fromkeys([*self.files, *(str(Path(p).resolve()) for p in paths)]))
         if len(combined) > 100:
-            messagebox.showwarning("单批数量限制", "每批最多 100 份 PDF，请分批处理。", parent=self.root)
+            self.message("showwarning", "单批数量限制", "每批最多 100 份 PDF，请分批处理。", parent=self.root)
             return
         self.files = combined
         self.listbox.delete(0, "end")
@@ -269,7 +334,7 @@ class Desktop:
         self.status.set(f"已选择 {len(self.files)} 份 PDF。")
 
     def add_files(self):
-        self.add(filedialog.askopenfilenames(parent=self.root, filetypes=[("PDF 单据", "*.pdf")]))
+        self.add(filedialog.askopenfilenames(parent=self.root, filetypes=[(self.tr("PDF 单据"), "*.pdf")]))
 
     def add_folder(self):
         path = filedialog.askdirectory(parent=self.root)
@@ -277,14 +342,14 @@ class Desktop:
             try:
                 self.add(collect([path]))
             except ValueError as exc:
-                messagebox.showwarning("无法添加", str(exc), parent=self.root)
+                self.message("showwarning", "无法添加", str(exc), parent=self.root)
 
     def load_samples(self):
         paths = sorted(sample_directory().glob("*.pdf"))
         if not paths:
-            messagebox.showerror("样例未找到", "请保留程序的完整文件夹，或手动添加 PDF。", parent=self.root)
+            self.message("showerror", "样例未找到", "请保留程序的完整文件夹，或手动添加 PDF。", parent=self.root)
             return
-        if self.files and not messagebox.askyesno("替换当前列表？", "将清空当前选择并加载合成样例。原文件不变。", parent=self.root):
+        if self.files and not self.message("askyesno", "替换当前列表？", "将清空当前选择并加载合成样例。原文件不变。", parent=self.root):
             return
         self.files = []
         self.add(paths)
@@ -301,9 +366,9 @@ class Desktop:
             return
         try:
             args = audit_arguments(self.files, self.parent.get(), self.tolerance.get(),
-                self.places.get(), "de" if self.number_format.get() == "1.234,56" else "en")
+                self.places.get(), "de" if self.number_format.get() == "1.234,56" else "en", self.language)
         except (ValueError, OSError) as exc:
-            messagebox.showwarning("请检查输入", str(exc), parent=self.root)
+            self.message("showwarning", "请检查输入", str(exc), parent=self.root)
             return
         self.source_lookup = {str(Path(p).resolve()): p for p in self.files}
         self.begin(args)
@@ -312,15 +377,16 @@ class Desktop:
         if self.busy:
             return
         try:
-            args = review_arguments(self.extracted.get(), self.corrections.get(), self.source.get(), self.parent.get())
+            args = review_arguments(self.extracted.get(), self.corrections.get(), self.source.get(), self.parent.get(), self.language)
         except (ValueError, OSError) as exc:
-            messagebox.showwarning("请检查复核文件", str(exc), parent=self.root)
+            self.message("showwarning", "请检查复核文件", str(exc), parent=self.root)
             return
         self.source_lookup = {str(Path(self.source.get()).resolve()): self.source.get()}
         self.begin(args)
 
     def begin(self, args):
         self.busy = True
+        self.language_selector.configure(state="disabled")
         for widget in self.locked:
             widget.configure(state="disabled")
         self.report_button.configure(state="disabled")
@@ -350,12 +416,13 @@ class Desktop:
                     self.status.set(f"{text}  {n}/{total}" if total else text)
                 else:
                     self.busy = False
+                    self.language_selector.configure(state="readonly")
                     for widget in self.locked:
                         widget.configure(state="normal")
                     if kind == "error":
                         self.stats.set("处理未完成，请检查提示后重试。")
                         self.status.set(data)
-                        messagebox.showerror("处理未完成", data, parent=self.root)
+                        self.message("showerror", "处理未完成", data, parent=self.root)
                     else:
                         self.output = Path(data["output"])
                         s = data["summary"]
@@ -411,7 +478,7 @@ class Desktop:
                 raise OSError()
             os.startfile(str(path))
         except OSError:
-            messagebox.showwarning("无法打开", "请确认文件存在，并安装可打开 Excel 的应用；也可在文件夹中手动打开。", parent=self.root)
+            self.message("showwarning", "无法打开", "请确认文件存在，并安装可打开 Excel 的应用；也可在文件夹中手动打开。", parent=self.root)
 
     def open_result(self, name=None):
         if self.output:
@@ -423,17 +490,21 @@ class Desktop:
 
     def close(self):
         if self.busy:
-            messagebox.showinfo("正在处理", "请等待当前批次完成后再关闭，以免中断报告写入。", parent=self.root)
+            self.message("showinfo", "正在处理", "请等待当前批次完成后再关闭，以免中断报告写入。", parent=self.root)
         else:
             self.root.destroy()
 
     def help(self):
-        messagebox.showinfo("使用说明", "1. 添加 PDF 或加载合成样例。\n2. 选择保存位置，点击生成报告。\n3. 查看差异、无法核验项和待复核提示。\n4. 如需修正，编辑 review.xlsx 并保存。\n5. 在“人工核算”中选择原件和复核表，点击重新核算。\n\n默认容差 0.01；差异大于容差才标记。缺值不等于零。\n算术一致不代表单据完整、真实或可以付款。\n文件本机处理，输出不加密，不自动上传或删除。", parent=self.root)
+        self.message("showinfo", "使用说明", "1. 添加 PDF 或加载合成样例。\n2. 选择保存位置，点击生成报告。\n3. 查看差异、无法核验项和待复核提示。\n4. 如需修正，编辑 review.xlsx 并保存。\n5. 在“人工核算”中选择原件和复核表，点击重新核算。\n\n默认容差 0.01；差异大于容差才标记。缺值不等于零。\n算术一致不代表单据完整、真实或可以付款。\n文件本机处理，输出不加密，不自动上传或删除。", parent=self.root)
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="SheetAudit desktop / SheetAudit 桌面程序")
+    parser.add_argument("--language", choices=("en", "zh"), default=None)
+    args = parser.parse_args()
     root = tk.Tk()
-    Desktop(root)
+    Desktop(root, language=args.language)
     root.mainloop()
 
 
